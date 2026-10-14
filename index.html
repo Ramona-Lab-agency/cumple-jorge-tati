@@ -388,9 +388,10 @@
     // la canción de YouTube; si el navegador no la deja arrancar sola, suena la cajita
     const tried = playSong();
     setTimeout(() => {
-      const playing = tried && yt.getPlayerState() === YT.PlayerState.PLAYING && !yt.isMuted();
+      const s = tried ? yt.getPlayerState() : -1;
+      const playing = (s === YT.PlayerState.PLAYING || s === YT.PlayerState.BUFFERING) && !yt.isMuted();
       if (!playing && !muted) { if (ytReady) yt.pauseVideo(); playMusic(); }
-    }, 1500);
+    }, 3500);
     if (navigator.vibrate) navigator.vibrate(30);
     env.classList.add('opened');
     setTimeout(() => {
