@@ -159,6 +159,14 @@
   }
   .card-wrap.show ~ .replay{opacity:.7;pointer-events:auto}
 
+  .sound{
+    position:fixed; top:max(14px,env(safe-area-inset-top)); right:14px; z-index:20;
+    width:44px; height:44px; border-radius:50%; border:1.5px solid rgba(243,217,164,.6);
+    background:rgba(29,20,48,.55); color:#f3d9a4; font-size:20px; cursor:pointer;
+    opacity:0; pointer-events:none; transition:opacity .5s;
+  }
+  .sound.on{opacity:1;pointer-events:auto}
+
   /* confeti */
   .confetti{position:fixed;top:-20px;width:9px;height:14px;pointer-events:none;z-index:10;animation:fall linear forwards}
   @keyframes fall{to{transform:translate3d(var(--dx),110vh,0) rotate(var(--r))}}
@@ -228,6 +236,7 @@
   </article>
 </div>
 <button class="replay" id="replay">↺ ver el sobre otra vez</button>
+<button class="sound" id="sound" aria-label="Silenciar música">🔊</button>
 
 <script>
   // lucecitas
@@ -262,9 +271,67 @@
     }
   }
 
+  // música: "Cumpleaños feliz" en cajita musical (Web Audio, sin archivos)
+  const soundBtn = document.getElementById('sound');
+  let ctx, master, muted = false, stopTimer;
+  const N = { G4:392, A4:440, B4:493.88, C5:523.25, D5:587.33, E5:659.25, F5:698.46, G5:783.99,
+              F2:87.31, G2:98, C3:130.81 };
+  // [nota, tiempos, bajo]
+  const SONG = [
+    ['G4',.75],['G4',.25],['A4',1,'C3'],['G4',1],['C5',1],['B4',2,'G2'],
+    ['G4',.75],['G4',.25],['A4',1,'G2'],['G4',1],['D5',1],['C5',2,'C3'],
+    ['G4',.75],['G4',.25],['G5',1,'C3'],['E5',1],['C5',1],['B4',1,'F2'],['A4',2],
+    ['F5',.75],['F5',.25],['E5',1,'C3'],['C5',1],['D5',1,'G2'],['C5',3,'C3']
+  ];
+  const BEAT = .55;
+
+  function tone(freq, t, dur, vol) {
+    [[1, 1], [2, .35], [3, .12]].forEach(([mult, gain]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = freq * mult;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol * gain, t + .01);
+      g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(g).connect(master); o.start(t); o.stop(t + dur + .05);
+    });
+  }
+
+  function playMusic(times = 3) {
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      ctx.resume();
+      master = ctx.createGain(); master.gain.value = muted ? 0 : .5; master.connect(ctx.destination);
+      let t = ctx.currentTime + .1;
+      for (let r = 0; r < times; r++) {
+        SONG.forEach(([n, b, bass]) => {
+          tone(N[n], t, Math.max(1.2, b * BEAT * 2), .22);
+          if (bass) tone(N[bass], t, b * BEAT * 2.5, .18);
+          t += b * BEAT;
+        });
+        t += BEAT * 2;
+      }
+      soundBtn.classList.add('on');
+      clearTimeout(stopTimer);
+      stopTimer = setTimeout(() => soundBtn.classList.remove('on'), (t - ctx.currentTime) * 1000);
+    } catch (e) { /* sin audio: la tarjeta sigue funcionando */ }
+  }
+
+  function stopMusic() {
+    if (master) { master.disconnect(); master = null; }
+    soundBtn.classList.remove('on');
+  }
+
+  soundBtn.addEventListener('click', () => {
+    muted = !muted;
+    if (master) master.gain.setTargetAtTime(muted ? 0 : .5, ctx.currentTime, .05);
+    soundBtn.textContent = muted ? '🔇' : '🔊';
+    soundBtn.setAttribute('aria-label', muted ? 'Activar música' : 'Silenciar música');
+  });
+
   function openEnvelope() {
     if (busy) return;
     busy = true;
+    playMusic();
     if (navigator.vibrate) navigator.vibrate(30);
     env.classList.add('opened');
     setTimeout(() => {
@@ -281,6 +348,7 @@
     wrap.classList.remove('show');
     stage.classList.remove('gone');
     env.classList.remove('opened');
+    stopMusic();
     busy = false;
   });
 </script>
