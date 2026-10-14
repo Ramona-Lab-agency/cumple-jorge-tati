@@ -121,12 +121,6 @@
   .card-wrap.show .card > *:nth-child(5){animation-delay:1.1s}
   .card-wrap.show .card > *:nth-child(6){animation-delay:1.25s}
   .card-wrap.show .card > *:nth-child(7){animation-delay:1.4s}
-  .card-wrap.show .card > *:nth-child(8){animation-delay:1.55s}
-
-  .song{margin-top:22px}
-  .yt-frame{position:relative;width:100%;aspect-ratio:16/9;min-height:200px;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 6px 16px rgba(0,0,0,.2)}
-  .yt-frame iframe,.yt-frame #yt{position:absolute;inset:0;width:100%;height:100%;border:0}
-  .song p{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:16px;color:var(--muted);margin-top:8px}
   @keyframes rise{to{opacity:1;transform:none}}
 
   .eyebrow{font-family:"Cormorant Garamond",serif;letter-spacing:.32em;font-size:13px;color:var(--muted);text-transform:uppercase}
@@ -238,11 +232,6 @@
       </a>
     </div>
 
-    <div class="song">
-      <div class="yt-frame"><div id="yt"></div></div>
-      <p>🎵 Celebration — Kool &amp; The Gang</p>
-    </div>
-
     <p class="foot">¡Te esperamos! 🥂</p>
   </article>
 </div>
@@ -332,51 +321,9 @@
     soundBtn.classList.remove('on');
   }
 
-  // canción de YouTube: suena SONG_LEN segundos desde SONG_START y baja el volumen al final
-  const VIDEO_ID = '3GwjfUFyY6M', SONG_START = 0, SONG_LEN = 20, FADE = 3;
-  let yt, ytReady = false, ytPlayed = false, ytWatch;
-  const ytScript = document.createElement('script');
-  ytScript.src = 'https://www.youtube.com/iframe_api';
-  document.head.appendChild(ytScript);
-
-  window.onYouTubeIframeAPIReady = () => {
-    yt = new YT.Player('yt', {
-      videoId: VIDEO_ID,
-      playerVars: { start: SONG_START, playsinline: 1, rel: 0 },
-      events: {
-        onReady: () => { ytReady = true; },
-        onStateChange: e => { if (e.data === YT.PlayerState.PLAYING) onSongPlaying(); }
-      }
-    });
-  };
-
-  function onSongPlaying() {
-    stopMusic();                      // si sonaba la cajita, la canción la reemplaza
-    soundBtn.classList.add('on');
-    if (ytPlayed) return;             // el corte de 20 s solo en la primera reproducción
-    ytPlayed = true;
-    clearInterval(ytWatch);
-    ytWatch = setInterval(() => {
-      const left = SONG_START + SONG_LEN - yt.getCurrentTime();
-      if (left <= 0) { yt.pauseVideo(); yt.setVolume(100); clearInterval(ytWatch); soundBtn.classList.remove('on'); }
-      else if (left < FADE) yt.setVolume(Math.round(100 * left / FADE));
-    }, 200);
-  }
-
-  function playSong() {
-    if (!ytReady) return false;
-    try {
-      yt.seekTo(SONG_START, true);
-      if (muted) yt.mute(); else { yt.unMute(); yt.setVolume(100); }
-      yt.playVideo();
-      return true;
-    } catch (e) { return false; }
-  }
-
   soundBtn.addEventListener('click', () => {
     muted = !muted;
     if (master) master.gain.setTargetAtTime(muted ? 0 : .5, ctx.currentTime, .05);
-    if (ytReady) muted ? yt.mute() : yt.unMute();
     soundBtn.textContent = muted ? '🔇' : '🔊';
     soundBtn.setAttribute('aria-label', muted ? 'Activar música' : 'Silenciar música');
   });
@@ -384,14 +331,7 @@
   function openEnvelope() {
     if (busy) return;
     busy = true;
-    ytPlayed = false;
-    // la canción de YouTube; si el navegador no la deja arrancar sola, suena la cajita
-    const tried = playSong();
-    setTimeout(() => {
-      const s = tried ? yt.getPlayerState() : -1;
-      const playing = (s === YT.PlayerState.PLAYING || s === YT.PlayerState.BUFFERING) && !yt.isMuted();
-      if (!playing && !muted) { if (ytReady) yt.pauseVideo(); playMusic(); }
-    }, 3500);
+    playMusic();
     if (navigator.vibrate) navigator.vibrate(30);
     env.classList.add('opened');
     setTimeout(() => {
@@ -409,8 +349,6 @@
     stage.classList.remove('gone');
     env.classList.remove('opened');
     stopMusic();
-    clearInterval(ytWatch);
-    if (ytReady) { yt.pauseVideo(); yt.setVolume(100); }
     busy = false;
   });
 </script>
